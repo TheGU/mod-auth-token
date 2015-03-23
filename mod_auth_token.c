@@ -44,6 +44,8 @@ typedef struct {
 	unsigned int prefix_len;
 	int timeout;
 	int checkip;
+    int checkredirect;
+    char *redirectprefix;
 } auth_token_config_rec;
 
 static void *create_auth_token_dir_config(apr_pool_t *p, char *d)
@@ -55,6 +57,8 @@ static void *create_auth_token_dir_config(apr_pool_t *p, char *d)
 	conf->prefix_len = 0;
 	conf->timeout = 60;		/* 60 second timeout per default */
     conf->checkip = 0;		/* Disabling IP check by default */ 
+    conf->checkredirect = 0;
+    conf->redirectprefix = NULL;
 	return conf;
 }
 
@@ -89,6 +93,12 @@ static const command_rec auth_token_cmds[] =
 	AP_INIT_FLAG("AuthTokenLimitByIp", ap_set_flag_slot,
 	 (void *)APR_OFFSETOF(auth_token_config_rec, checkip), 
 	 ACCESS_CONF, "enable or disable ip checking"),
+    AP_INIT_FLAG("AuthTokenRedirect", ap_set_flag_slot,
+	 (void *)APR_OFFSETOF(auth_token_config_rec, checkredirect), 
+	 ACCESS_CONF, "enable or disable redirect after timeout"),       
+	AP_INIT_TAKE1("AuthTokenRedirectPrefix", ap_set_string_slot,
+	 (void *)APR_OFFSETOF(auth_token_config_rec, redirectprefix),
+	 ACCESS_CONF, "if redirect use this to redirect to parameter"),     
 	{NULL}
 };
 
@@ -145,6 +155,9 @@ static int authenticate_token(request_rec *r)
 	char token[APR_MD5_DIGESTSIZE * 2];
 	auth_token_config_rec *conf;
 	apr_md5_ctx_t context;
+    
+    int i;
+    char *redirect_string_end;
 
 	conf = ap_get_module_config(r->per_dir_config, &auth_token_module);
 	
@@ -178,9 +191,18 @@ static int authenticate_token(request_rec *r)
 
 	/* check if token has expired */
 	if ((unsigned int)apr_time_sec(apr_time_now()) > auth_token_hex2sec(timestamp) + conf->timeout) {
-		ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "mod_auth_token: token expired at %u, now is %u",
-			auth_token_hex2sec(timestamp) + conf->timeout, (unsigned int)apr_time_sec(apr_time_now()));
-		return HTTP_GONE;
+        if (conf->checkredirect) {
+            /* Redirect to builder url after expire */   
+            redirect_string_end = strchr(path+1, '/');
+            *redirect_string_end = '\0';
+            memmove(r->uri, path+1, strlen(path));
+            apr_table_set(r->headers_out, "Location", apr_pstrcat(r->pool, conf->redirectprefix, r->uri, NULL));
+            return HTTP_MOVED_PERMANENTLY;        
+        } else {
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "mod_auth_token: token expired at %u, now is %u",
+                auth_token_hex2sec(timestamp) + conf->timeout, (unsigned int)apr_time_sec(apr_time_now()));
+            return HTTP_GONE;
+        }
 	}
 
 	/* create md5 token of secret + path + timestamp */
