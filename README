@@ -32,6 +32,8 @@ USAGE
       AuthTokenPrefix       /protected/
       AuthTokenTimeout      60
 	    AuthTokenLimitByIp	  off
+        AuthTokenRedirect on
+        AuthTokenRedirectPrefix /link?path=        
     </Location
 
   The actual file would be located in
