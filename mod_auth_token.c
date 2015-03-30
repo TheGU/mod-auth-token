@@ -17,6 +17,8 @@
 /*
  * Written by Mikael Johansson <mikael AT synd DOT info>
  * Some code by David Aves <david.alves AT gmx DOT fr>
+ * Improve by Pattapong Jantarach <pattapongj AT gmail DOT com>
+ *
  *
  * This module uses token based authentication to secure files and
  * prevent deep-linking.

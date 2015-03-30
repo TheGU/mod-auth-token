@@ -4,9 +4,6 @@
   Have your script or servlet generate a token to authenticate the 
   download and let Apache handle the file transfer without having 
   to pipe it through a script for security.
-  
-  You can find downloads, daily snapshots and support information at
-   http://code.google.com/p/mod-auth-token/ 
 
 USAGE
 
